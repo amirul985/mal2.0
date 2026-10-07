@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MONSTER PUNCH - BRAIN BRAWL</title>
+    
+    <!-- MediaPipe CDNs -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
+
+        :root {
+            /* Vibrant Color Palette */
+            --primary: #00d2ff;
+            --primary-dark: #009ce0;
+            --secondary: #ffcb00;
+            --secondary-dark: #e5b600;
+            --accent: #ff007f;
+            --success: #00e676;
+            --danger: #ff3d00;
+            --bg-top: #3a1c71;
+            --bg-mid: #d76d77;
+            --bg-bot: #ffaf7b;
+            --text-main: #ffffff;
+            --text-dark: #333333;
+            --panel-bg: rgba(255, 255, 255, 0.9);
+            
+            --font-main: 'Fredoka', 'Century Gothic', Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: linear-gradient(135deg, var(--bg-top), var(--bg-mid), var(--bg-bot));
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 1200px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.2);
+        }
+
+        /* Webcam Background */
+        #webcam-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            opacity: 0.4; /* So UI pops out */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror */
+        }
+        
+        #handCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            transform: scaleX(-1);
+        }
+
+        /* Screens */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            transition: opacity 0.5s;
+        }
+
+        .screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+            display: none;
+        }
+
+        h1 {
+            font-size: 5rem;
+            text-align: center;
+            text-transform: uppercase;
+            text-shadow: 4px 4px 0px var(--primary-dark), 8px 8px 0px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+            line-height: 1.1;
+            color: var(--secondary);
+            -webkit-text-stroke: 2px var(--text-dark);
+        }
+
+        h2 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border-radius: 30px;
+            padding: 30px;
+            text-align: center;
+            color: var(--text-dark);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            border: 5px solid var(--text-main);
+            max-width: 800px;
+            width: 90%;
+        }
+
+        button {
+            background: var(--secondary);
+            color: var(--text-dark);
+            border: none;
+            padding: 15px 40px;
+            font-size: 2rem;
+            font-family: var(--font-main);
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 0 var(--secondary-dark), 0 15px 20px rgba(0,0,0,0.4);
+            transition: all 0.1s;
+            margin: 10px;
+            text-transform: uppercase;
+        }
+
+        button:active {
+            transform: translateY(10px);
+            box-shadow: 0 0 0 var(--secondary-dark), 0 5px 10px rgba(0,0,0,0.4);
+        }
+
+        button.btn-primary {
+            background: var(--primary);
+            box-shadow: 0 10px 0 var(--primary-dark), 0 15px 20px rgba(0,0,0,0.4);
+            color: white;
+        }
+        button.btn-primary:active {
+             box-shadow: 0 0 0 var(--primary-dark), 0 5px 10px rgba(0,0,0,0.4);
+        }
+
+        #game-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            display: flex;
+            flex-direction: column;
+            pointer-events: none; /* Let clicks pass to canvas if needed */
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px 30px;
+            font-size: 2rem;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+
+        .hud-stat {
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: 3px solid rgba(255,255,255,0.5);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #timer-container {
+            width: 100%;
+            height: 20px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 10px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        #timer-bar {
+            height: 100%;
+            width: 100%;
+            background: var(--success);
+            transition: width 1s linear, background-color 0.5s;
+        }
+
+        .question-area {
+            flex-grow: 0;
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .question-box {
+            background: var(--panel-bg);
+            color: var(--text-dark);
+            padding: 20px 40px;
+            border-radius: 20px;
+            font-size: 2.5rem;
+            font-weight: bold;
+            display: inline-block;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            border: 4px solid var(--secondary);
+            max-width: 90%;
+        }
+
+        .monsters-area {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 50px;
+            padding: 20px;
+            flex-wrap: wrap;
+        }
+
+        .monster-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.2s;
+        }
+
+        .monster-emoji {
+            font-size: 7rem;
+            filter: drop-shadow(0 10px 10px rgba(0,0,0,0.5));
+            animation: float 3s ease-in-out infinite;
+            pointer-events: auto; /* Allow interaction */
+        }
+
+        .monster-container:nth-child(2) .monster-emoji { animation-delay: 0.5s; }
+        .monster-container:nth-child(3) .monster-emoji { animation-delay: 1s; }
+
+        .answer-card {
+            background: white;
+            color: var(--text-dark);
+            padding: 15px 20px;
+            border-radius: 15px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            margin-top: -20px;
+            z-index: 2;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            border: 3px solid var(--text-dark);
+            width: 250px;
+            word-wrap: break-word;
+        }
+
+        /* Animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        
+        .shake { animation: shake 0.5s; }
+
+        @keyframes explode {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.5; filter: brightness(2) hue-rotate(90deg); }
+            100% { transform: scale(0); opacity: 0; }
+        }
+        .explode { animation: explode 0.5s forwards; }
+
+        #hand-cursor {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.4);
+            border: 4px solid var(--primary);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 100;
+            transform: translate(-50%, -50%);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 20px var(--primary);
+            transition: border-color 0.1s, transform 0.1s;
+        }
+
+        #hand-cursor::after {
+            content: '✋';
+            font-size: 40px;
+        }
+
+        #hand-cursor.fist {
+            border-color: var(--accent);
+            box-shadow: 0 0 30px var(--accent);
+            transform: translate(-50%, -50%) scale(0.8);
+            background: rgba(255, 0, 127, 0.4);
+        }
+        #hand-cursor.fist::after {
+            content: '✊';
+        }
+
+        .floating-text {
+            position: absolute;
+            font-size: 3rem;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 110;
+            animation: floatUp 1s ease-out forwards;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-100px) scale(1.5); opacity: 0; }
+        }
+
+        .particle {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 105;
+        }
+
+        /* Controls */
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 20;
+            display: flex;
+            gap: 10px;
+        }
+        .icon-btn {
+            background: rgba(0,0,0,0.5);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    
+    <div id="webcam-container">
+        <video id="webcam" autoplay playsinline></video>
+        <canvas id="handCanvas"></canvas>
+    </div>
+
+    <!-- Hand Cursor -->
+    <div id="hand-cursor"></div>
+
+    <!-- Game UI HUD -->
+    <div id="game-ui" class="hidden">
+        <div class="hud-top">
+            <div class="hud-stat">
+                <span>⭐ SKOR:</span>
+                <span id="score-display">0</span>
+            </div>
+            <div class="hud-stat">
+                <span>SOALAN:</span>
+                <span id="progress-display">1 / 10</span>
+            </div>
+            <div class="hud-stat">
+                <span>NYAWA:</span>
+                <span id="lives-display">❤️❤️❤️</span>
+            </div>
+        </div>
+        <div style="padding: 0 30px;">
+            <div id="timer-container">
+                <div id="timer-bar"></div>
+            </div>
+        </div>
+
+        <div class="question-area">
+            <div class="question-box" id="question-text">Memuatkan Soalan...</div>
+        </div>
+
+        <div class="monsters-area" id="monsters-container">
+            <!-- Monsters injected here -->
+        </div>
+    </div>
+
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="screen">
+        <div class="panel">
+            <h2>🤖 MENYEDIAKAN MONSTER...</h2>
+            <p>Sila tunggu sebentar. Sedang memuatkan sistem AI dan Kamera...</p>
+            <div style="margin-top: 20px; font-size: 3rem;">⏳</div>
+        </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen hidden">
+        <h1 style="font-size: 4rem;">👊 MONSTER PUNCH<br><span style="color:white; font-size: 3rem;">BRAIN BRAWL</span></h1>
+        <div class="panel">
+            <h2 style="color:var(--accent);">CARA BERMAIN:</h2>
+            <ul style="text-align: left; font-size: 1.5rem; line-height: 1.8; margin-left: 20px; margin-bottom: 20px;">
+                <li>✋ Gerakkan tangan di hadapan kamera.</li>
+                <li>🎯 Halakan pada jawapan yang betul.</li>
+                <li>✊ <strong>KEPALKAN TANGAN</strong> untuk menumbuk!</li>
+                <li>❤️ Jangan tumbuk jawapan salah!</li>
+            </ul>
+            <p id="cam-status" style="color: var(--danger); margin-bottom: 15px; font-weight: bold;">📷 Sila benarkan akses kamera pelayar anda.</p>
+            <button id="btn-start" class="btn-primary" disabled>🚀 MULA PERMAINAN</button>
+        </div>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="result-screen" class="screen hidden">
+        <div class="panel">
+            <h1 id="result-title" style="font-size: 4rem; margin-bottom: 10px;">🎉 TAHNIAH!</h1>
+            <h2>SKOR AKHIR</h2>
+            <div style="font-size: 5rem; font-weight: bold; color: var(--accent); margin: 20px 0;" id="result-score">100</div>
+            <div style="font-size: 1.5rem; margin-bottom: 20px;" id="result-message">Anda memang hebat!</div>
+            <button id="btn-restart">🔄 MAIN SEMULA</button>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <button id="btn-sound" class="icon-btn">🔊</button>
+    </div>
+
+</div>
+
+<script>
+    // ---------------------------------------------------------
+    // 19. CONFIGURATION & DATA (EASY TO MODIFY)
+    // ---------------------------------------------------------
+    const GAME_CONFIG = {
+        title: "MONSTER PUNCH – BRAIN BRAWL",
+        subject: "Tanaman Hidroponik",
+        totalQuestions: 10,
+        scorePerCorrect: 10,
+        startingLives: 3,
+        timePerQuestion: 20, // seconds
+        punchCooldown: 800, // ms
+        hitRadius: 150 // distance threshold for a punch
+    };
+
+    const allQuestions = [
+        {
+            question: "Apakah kaedah tanaman yang tidak menggunakan tanah?",
+            options: ["Hidroponik", "Menanam di dalam pasir", "Menanam di dalam pasu tanah"],
+            answer: 0
+        },
+        {
+            question: "Apakah yang diperlukan oleh tanaman hidroponik untuk membesar?",
+            options: ["Batu sahaja", "Cahaya, air dan nutrien", "Pasir sahaja"],
+            answer: 1
+        },
+        {
+            question: "Apakah fungsi larutan nutrien?",
+            options: ["Membekalkan zat makanan", "Mengeringkan akar", "Menghalau cahaya matahari"],
+            answer: 0
+        },
+        {
+            question: "Bahagian tanaman yang menyerap air dan nutrien ialah...",
+            options: ["Bunga", "Buah", "Akar"],
+            answer: 2
+        },
+        {
+            question: "Antara berikut, yang manakah sesuai ditanam secara hidroponik?",
+            options: ["Durian", "Sawi", "Kelapa"],
+            answer: 1
+        },
+        {
+            question: "Mengapakah cahaya diperlukan oleh tanaman?",
+            options: ["Untuk membantu fotosintesis", "Untuk menjadikan akar keras", "Untuk mengeringkan air"],
+            answer: 0
+        },
+        {
+            question: "Apakah kelebihan tanaman hidroponik?",
+            options: ["Memerlukan kawasan luas", "Tidak memerlukan air", "Tidak memerlukan tanah"],
+            answer: 2
+        },
+        {
+            question: "Apakah yang perlu dipantau dalam sistem hidroponik?",
+            options: ["Air dan larutan nutrien", "Warna kasut", "Saiz meja"],
+            answer: 0
+        },
+        {
+            question: "Apakah tujuan memastikan bekas tanaman sentiasa bersih?",
+            options: ["Menjadikan tanaman berat", "Menjaga kesihatan tanaman", "Mengurangkan cahaya"],
+            answer: 1
+        },
+        {
+            question: "Apakah tindakan yang betul apabila daun tanaman menjadi layu?",
+            options: ["Periksa air dan nutrien", "Buang semua tanaman", "Tutup dalam kotak"],
+            answer: 0
+        }
+    ];
+
+    // Array of monster emojis to randomize
+    const monsterEmojis = ['👾', '👹', '🤖', '🐲', '👻', '👽', '🎃'];
+
+    // ---------------------------------------------------------
+    // STATE VARIABLES
+    // ---------------------------------------------------------
+    let currentQuestions = [];
+    let questionIndex = 0;
+    let score = 0;
+    let lives = GAME_CONFIG.startingLives;
+    let timerValue = GAME_CONFIG.timePerQuestion;
+    let timerInterval = null;
+    
+    let gameState = 'loading'; // loading, start, playing, gameover
+    let soundEnabled = true;
+    
+    let handPos = { x: -100, y: -100 };
+    let isFistCurrently = false;
+    let canPunch = true;
+
+    // DOM Elements
+    const els = {
+        loadingScreen: document.getElementById('loading-screen'),
+        startScreen: document.getElementById('start-screen'),
+        gameUi: document.getElementById('game-ui'),
+        resultScreen: document.getElementById('result-screen'),
+        btnStart: document.getElementById('btn-start'),
+        btnRestart: document.getElementById('btn-restart'),
+        btnSound: document.getElementById('btn-sound'),
+        camStatus: document.getElementById('cam-status'),
+        video: document.getElementById('webcam'),
+        canvas: document.getElementById('handCanvas'),
+        cursor: document.getElementById('hand-cursor'),
+        scoreDisplay: document.getElementById('score-display'),
+        livesDisplay: document.getElementById('lives-display'),
+        progressDisplay: document.getElementById('progress-display'),
+        timerBar: document.getElementById('timer-bar'),
+        questionText: document.getElementById('question-text'),
+        monstersContainer: document.getElementById('monsters-container'),
+        resultScore: document.getElementById('result-score'),
+        resultMessage: document.getElementById('result-message'),
+        resultTitle: document.getElementById('result-title')
+    };
+
+    const ctx = els.canvas.getContext('2d');
+    let vw = window.innerWidth;
+    let vh = window.innerHeight;
+
+    // Resize handling
+    window.addEventListener('resize', () => {
+        vw = window.innerWidth;
+        vh = window.innerHeight;
+        els.canvas.width = els.video.videoWidth || vw;
+        els.canvas.height = els.video.videoHeight || vh;
+    });
+
+    // ---------------------------------------------------------
+    // AUDIO ENGINE (Web Audio API)
+    // ---------------------------------------------------------
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = new AudioContext();
+
+    const sounds = {
+        playOscillator: (freq, type, duration, vol, glideTo = null) => {
+            if (!soundEnabled) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            
+            if (glideTo) {
+                osc.frequency.exponentialRampToValueAtTime(glideTo, audioCtx.currentTime + duration);
+            }
+
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        },
+        click: () => sounds.playOscillator(600, 'sine', 0.1, 0.5),
+        punch: () => {
+            // White noise burst
+            if (!soundEnabled) return;
+            const bufferSize = audioCtx.sampleRate * 0.2; // 0.2 seconds
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            
+            // Bandpass filter for 'thud'
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 1000;
+            
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            noise.start();
+        },
+        correct: () => {
+            sounds.playOscillator(400, 'square', 0.1, 0.3);
+            setTimeout(() => sounds.playOscillator(600, 'square', 0.1, 0.3), 100);
+            setTimeout(() => sounds.playOscillator(800, 'square', 0.3, 0.3), 200);
+        },
+        wrong: () => sounds.playOscillator(150, 'sawtooth', 0.4, 0.5, 50),
+        win: () => {
+            [400, 500, 600, 800, 1000].forEach((f, i) => {
+                setTimeout(() => sounds.playOscillator(f, 'sine', 0.2, 0.5), i * 150);
+            });
+        },
+        lose: () => {
+            sounds.playOscillator(300, 'sawtooth', 0.5, 0.5, 100);
+            setTimeout(() => sounds.playOscillator(200, 'sawtooth', 0.5, 0.5, 50), 400);
+        }
+    };
+
+    // Toggle Sound
+    els.btnSound.addEventListener('click', () => {
+        soundEnabled = !soundEnabled;
+        els.btnSound.innerText = soundEnabled ? '🔊' : '🔇';
+    });
+
+
+    // ---------------------------------------------------------
+    // MEDIAPIPE & WEBCAM SETUP
+    // ---------------------------------------------------------
+    let handsReady = false;
+
+    const hands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+
+    hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+    });
+
+    hands.onResults(onResults);
+
+    // Initialize Camera
+    const camera = new Camera(els.video, {
+        onFrame: async () => {
+            await hands.send({image: els.video});
+        },
+        width: 1280,
+        height: 720
+    });
+
+    // Start camera request
+    camera.start()
+        .then(() => {
+            els.camStatus.innerText = "✅ Kamera sedia!";
+            els.camStatus.style.color = "var(--success)";
+            // Wait for first result to fully enable start button
+        })
+        .catch(err => {
+            console.error(err);
+            els.camStatus.innerText = "⚠️ Kamera tidak dapat diakses. Sila semak kebenaran pelayar.";
+            els.loadingScreen.innerHTML = `<div class="panel"><h2>Ralat Kamera</h2><p>${err.message}</p></div>`;
+        });
+
+
+    // Process Hand Landmarks
+    function onResults(results) {
+        if (!handsReady) {
+            handsReady = true;
+            els.loadingScreen.classList.add('hidden');
+            els.startScreen.classList.remove('hidden');
+            els.btnStart.disabled = false;
+        }
+
+        ctx.save();
+        ctx.clearRect(0, 0, els.canvas.width, els.canvas.height);
+
+        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+            const landmarks = results.multiHandLandmarks[0];
+            
+            // Draw landmarks (optional, good for debugging, but hidden usually)
+            // drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 2});
+            // drawLandmarks(ctx, landmarks, {color: '#FF0000', lineWidth: 1});
+
+            // 1. Map Hand to Cursor (Use index finger MCP or center of palm)
+            // Using wrist (0) or middle MCP (9) is stable. Let's use 9.
+            const pointerLm = landmarks[9];
+            
+            // Screen mapping (flip X because video is mirrored)
+            // Calculate relative to video element size which covers window
+            const vRect = els.video.getBoundingClientRect();
+            handPos.x = (1 - pointerLm.x) * window.innerWidth; 
+            handPos.y = pointerLm.y * window.innerHeight;
+
+            updateCursor();
+
+            // 2. Detect Fist Gesture
+            const fist = detectFist(landmarks);
+            if (fist !== isFistCurrently) {
+                isFistCurrently = fist;
+                if (isFistCurrently && gameState === 'playing' && canPunch) {
+                    executePunch();
+                }
+                
+                // Update cursor visuals
+                if(isFistCurrently) {
+                    els.cursor.classList.add('fist');
+                } else {
+                    els.cursor.classList.remove('fist');
+                }
+            }
+        } else {
+            // Hide cursor if no hand
+            els.cursor.style.display = 'none';
+        }
+        ctx.restore();
+    }
+
+    function detectFist(landmarks) {
+        // Simple logic: distance from fingertips (8,12,16,20) to wrist (0)
+        // compared to distance from MCPs (5,9,13,17) to wrist.
+        // If tips are closer to wrist than MCPs, hand is closed.
+        const wrist = landmarks[0];
+        const tips = [landmarks[8], landmarks[12], landmarks[16], landmarks[20]];
+        const mcps = [landmarks[5], landmarks[9], landmarks[13], landmarks[17]];
+
+        let closedFingers = 0;
+
+        for (let i = 0; i < 4; i++) {
+            const tipDist = getDistance(wrist, tips[i]);
+            const mcpDist = getDistance(wrist, mcps[i]);
+            
+            // If fingertip is significantly closer to wrist than the knuckle, it's curled
+            if (tipDist < mcpDist * 0.8) { 
+                closedFingers++;
+            }
+        }
+
+        // Thumb logic (optional, often just 4 fingers is enough for a fist)
+        return closedFingers >= 3; 
+    }
+
+    function getDistance(p1, p2) {
+        return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+    }
+
+    function updateCursor() {
+        els.cursor.style.display = 'flex';
+        els.cursor.style.left = `${handPos.x}px`;
+        els.cursor.style.top = `${handPos.y}px`;
+    }
+
+    // ---------------------------------------------------------
+    // GAME LOGIC
+    // ---------------------------------------------------------
+
+    els.btnStart.addEventListener('click', () => {
+        sounds.click();
+        
+        // Ensure AudioContext is resumed on user interaction
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+
+        els.startScreen.classList.add('hidden');
+        startGame();
+    });
+
+    els.btnRestart.addEventListener('click', () => {
+        sounds.click();
+        els.resultScreen.classList.add('hidden');
+        startGame();
+    });
+
+    function startGame() {
+        // Shuffle questions
+        currentQuestions = [...allQuestions].sort(() => Math.random() - 0.5).slice(0, GAME_CONFIG.totalQuestions);
+        
+        questionIndex = 0;
+        score = 0;
+        lives = GAME_CONFIG.startingLives;
+        gameState = 'playing';
+        
+        els.gameUi.classList.remove('hidden');
+        updateHUD();
+        loadQuestion();
+    }
+
+    function updateHUD() {
+        els.scoreDisplay.innerText = score;
+        els.progressDisplay.innerText = `${questionIndex + 1} / ${GAME_CONFIG.totalQuestions}`;
+        els.livesDisplay.innerText = '❤️'.repeat(lives) + '🖤'.repeat(GAME_CONFIG.startingLives - lives);
+    }
+
+    function loadQuestion() {
+        if (questionIndex >= currentQuestions.length || lives <= 0) {
+            endGame();
+            return;
+        }
+
+        const q = currentQuestions[questionIndex];
+        els.questionText.innerText = q.question;
+        els.monstersContainer.innerHTML = '';
+
+        // Randomize monster emojis
+        const emojis = [...monsterEmojis].sort(() => Math.random() - 0.5);
+
+        // Render options
+        q.options.forEach((optText, index) => {
+            const isCorrect = (index === q.answer);
+            
+            const mBox = document.createElement('div');
+            mBox.className = 'monster-container';
+            mBox.dataset.correct = isCorrect;
+            
+            mBox.innerHTML = `
+                <div class="monster-emoji">${emojis[index]}</div>
+                <div class="answer-card">${optText}</div>
+            `;
+            
+            els.monstersContainer.appendChild(mBox);
+        });
+
+        startTimer();
+    }
+
+    function startTimer() {
+        clearInterval(timerInterval);
+        timerValue = GAME_CONFIG.timePerQuestion;
+        updateTimerBar();
+
+        timerInterval = setInterval(() => {
+            timerValue--;
+            updateTimerBar();
+
+            if(timerValue <= 5 && timerValue > 0) {
+                sounds.playOscillator(800, 'sine', 0.1, 0.2); // Tick
+            }
+
+            if (timerValue <= 0) {
+                clearInterval(timerInterval);
+                handleTimeout();
+            }
+        }, 1000);
+    }
+
+    function updateTimerBar() {
+        const pct = (timerValue / GAME_CONFIG.timePerQuestion) * 100;
+        els.timerBar.style.width = `${pct}%`;
+        
+        if (pct > 50) els.timerBar.style.backgroundColor = 'var(--success)';
+        else if (pct > 25) els.timerBar.style.backgroundColor = 'var(--secondary)';
+        else els.timerBar.style.backgroundColor = 'var(--danger)';
+    }
+
+    function executePunch() {
+        canPunch = false;
+        setTimeout(() => { canPunch = true; }, GAME_CONFIG.punchCooldown);
+
+        sounds.punch();
+        spawnParticles(handPos.x, handPos.y, varColor('--text-main'));
+
+        // Find nearest monster
+        const monsters = document.querySelectorAll('.monster-container');
+        let nearestMonster = null;
+        let minDistance = Infinity;
+
+        monsters.forEach(monster => {
+            const rect = monster.getBoundingClientRect();
+            // Center of monster box
+            const mx = rect.left + rect.width / 2;
+            const my = rect.top + rect.height / 2;
+            
+            const dist = Math.sqrt(Math.pow(mx - handPos.x, 2) + Math.pow(my - handPos.y, 2));
+            
+            if (dist < minDistance) {
+                minDistance = dist;
+                nearestMonster = monster;
+            }
+        });
+
+        // Check if within hit radius
+        if (nearestMonster && minDistance < GAME_CONFIG.hitRadius) {
+            checkAnswer(nearestMonster);
+        }
+    }
+
+    function checkAnswer(monsterElement) {
+        clearInterval(timerInterval);
+        const isCorrect = monsterElement.dataset.correct === 'true';
+        const rect = monsterElement.getBoundingClientRect();
+        const mx = rect.left + rect.width / 2;
+        const my = rect.top + rect.height / 2;
+
+        if (isCorrect) {
+            sounds.correct();
+            score += GAME_CONFIG.scorePerCorrect;
+            monsterElement.classList.add('explode');
+            showFloatingText("✅ BETUL!", mx, my, "var(--success)");
+            showFloatingText(`+${GAME_CONFIG.scorePerCorrect}`, mx, my - 50, "var(--secondary)");
+            spawnParticles(mx, my, varColor('--success'));
+            
+        } else {
+            sounds.wrong();
+            lives--;
+            monsterElement.classList.add('shake');
+            document.getElementById('game-container').classList.add('shake');
+            setTimeout(() => document.getElementById('game-container').classList.remove('shake'), 500);
+            
+            showFloatingText("❌ SALAH!", mx, my, "var(--danger)");
+        }
+
+        updateHUD();
+
+        // Wait for animations before next question
+        setTimeout(() => {
+            questionIndex++;
+            loadQuestion();
+        }, 1500);
+    }
+
+    function handleTimeout() {
+        sounds.wrong();
+        lives--;
+        updateHUD();
+        showFloatingText("Masa Tamat!", vw/2, vh/2, "var(--danger)");
+        
+        setTimeout(() => {
+            questionIndex++;
+            loadQuestion();
+        }, 1500);
+    }
+
+    function endGame() {
+        gameState = 'gameover';
+        clearInterval(timerInterval);
+        els.gameUi.classList.add('hidden');
+        els.resultScreen.classList.remove('hidden');
+
+        els.resultScore.innerText = score;
+        
+        let msg = "";
+        const maxScore = GAME_CONFIG.totalQuestions * GAME_CONFIG.scorePerCorrect;
+        const pct = (score / maxScore) * 100;
+
+        if (lives <= 0) {
+            msg = "💪 JANGAN PUTUS ASA! Cuba lagi!";
+            els.resultTitle.innerText = "GAME OVER";
+            sounds.lose();
+        } else {
+            if (pct >= 90) { msg = "🏆 CEMERLANG! Anda memang hebat!"; }
+            else if (pct >= 70) { msg = "⭐ SANGAT BAIK!"; }
+            else if (pct >= 50) { msg = "👍 BAGUS! Teruskan berlatih!"; }
+            else { msg = "💪 JANGAN PUTUS ASA! Cuba lagi!"; }
+            
+            els.resultTitle.innerText = "🎉 TAHNIAH!";
+            sounds.win();
+        }
+
+        els.resultMessage.innerText = msg;
+    }
+
+    // --- Utilities ---
+    
+    function varColor(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    function showFloatingText(text, x, y, color) {
+        const el = document.createElement('div');
+        el.className = 'floating-text';
+        el.innerText = text;
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        el.style.color = color;
+        
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 1000);
+    }
+
+    function spawnParticles(x, y, color) {
+        for(let i=0; i<10; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.style.backgroundColor = color;
+            p.style.left = `${x}px`;
+            p.style.top = `${y}px`;
+            
+            // Random direction
+            const angle = Math.random() * Math.PI * 2;
+            const velocity = 50 + Math.random() * 100;
+            const tx = Math.cos(angle) * velocity;
+            const ty = Math.sin(angle) * velocity;
+            
+            p.style.transition = 'all 0.5s ease-out';
+            document.body.appendChild(p);
+            
+            // Trigger animation next frame
+            requestAnimationFrame(() => {
+                p.style.transform = `translate(${tx}px, ${ty}px) scale(0)`;
+                p.style.opacity = '0';
+            });
+            
+            setTimeout(() => p.remove(), 500);
+        }
+    }
+
+</script>
+</body>
+</html>
